@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estação X2 - Gestão de Motores</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .active-tab {
+            border-bottom: 2px solid #2563eb;
+            color: #2563eb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <i data-lucide="cpu" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Estação X2 - Controle de Ativos</h1>
+                    <p class="text-xs text-slate-400">Engenharia de Manutenção & Confiabilidade</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Online (Excel Sync)
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navegação de Abas -->
+    <nav class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 flex space-x-8 overflow-x-auto">
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="py-4 px-1 flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent active-tab">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                <span>Painel / Busca</span>
+            </button>
+            <button onclick="switchTab('scanner')" id="tab-scanner" class="py-4 px-1 flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
+                <i data-lucide="qr-code" class="w-4 h-4"></i>
+                <span>Bipar QR Code</span>
+            </button>
+            <button onclick="switchTab('move')" id="tab-move" class="py-4 px-1 flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
+                <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                <span>Movimentar Motor</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- ABA 1: DASHBOARD & LISTA -->
+        <div id="view-dashboard" class="space-y-6">
+            <!-- Cards de Métricas -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase">Total na Base</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1" id="stat-total">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-emerald-500">
+                    <p class="text-xs font-medium text-slate-500 uppercase">Disponível X2</p>
+                    <p class="text-2xl font-bold text-emerald-600 mt-1" id="stat-x2">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-blue-500">
+                    <p class="text-xs font-medium text-slate-500 uppercase">Em Operação</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1" id="stat-area">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
+                    <p class="text-xs font-medium text-slate-500 uppercase">Oficina / Manutenção</p>
+                    <p class="text-2xl font-bold text-amber-600 mt-1" id="stat-oficina">0</p>
+                </div>
+            </div>
+
+            <!-- Filtros e Busca -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="relative w-full md:w-96">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+                    <input type="text" id="search-input" onkeyup="filterMotors()" placeholder="Buscar por TAG, Modelo, Série, Requisição ou Local..." class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+                    <button onclick="exportToCSV()" class="px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition flex items-center space-x-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Exportar Excel (.CSV)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabela de Motores -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold uppercase text-xs border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">TAG</th>
+                                <th class="p-4">Modelo / Aplicação</th>
+                                <th class="p-4">Potência / Carcaça</th>
+                                <th class="p-4">Status Atual</th>
+                                <th class="p-4">Localização</th>
+                                <th class="p-4">Requisição</th>
+                                <th class="p-4 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="motors-table-body" class="divide-y divide-slate-100">
+                            <!-- Inserido dinamicamente via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: SCANNER DE QR CODE -->
+        <div id="view-scanner" class="hidden space-y-6">
+            <div class="max-w-md mx-auto bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center">
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="camera" class="w-8 h-8"></i>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900">Leitor de QR Code</h2>
+                <p class="text-xs text-slate-500 mb-6">Aponte a câmera do celular para a TAG do motor</p>
+
+                <div class="bg-slate-900 text-white rounded-lg p-8 relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]">
+                    <div class="w-32 h-32 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center animate-pulse mb-3">
+                        <i data-lucide="qr-code" class="w-12 h-12 text-blue-400"></i>
+                    </div>
+                    <p class="text-xs text-slate-400">Câmera Ativa - Posicione o código</p>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-slate-100">
+                    <p class="text-xs font-semibold text-slate-500 uppercase mb-3">Ou simule a leitura rápida de um motor:</p>
+                    <div class="grid grid-cols-2 gap-2" id="quick-scan-buttons">
+                        <!-- Botões simuladores gerados via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 3: FICHA TÉCNICA COMPLETA E FORMULÁRIO -->
+        <div id="view-move" class="hidden space-y-6">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <div class="flex flex-col md:flex-row gap-8">
+                    
+                    <!-- Lado Esquerdo: Imagem + Ficha Técnica Padronizada -->
+                    <div class="w-full md:w-1/2 space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-xs font-bold text-blue-600 uppercase tracking-wider" id="detail-tag">MOT-X2-0001</span>
+                                <h2 class="text-xl font-bold text-slate-900" id="detail-modelo">WEG W22 Plus</h2>
+                                <p class="text-xs text-slate-500" id="detail-aplicacao">Aplicação: ---</p>
+                            </div>
+                            <span id="detail-status-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                Disponível X2
+                            </span>
+                        </div>
+
+                        <!-- Foto do Motor -->
+                        <div class="relative bg-slate-100 rounded-lg overflow-hidden border border-slate-200 aspect-video flex items-center justify-center">
+                            <img id="detail-img" src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=600" alt="Motor" class="w-full h-full object-cover">
+                            <div class="absolute bottom-2 left-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
+                                Foto Geral do Ativo com TAG
+                            </div>
+                        </div>
+
+                        <!-- Placa de Dados do Motor (Todas as Colunas da Planilha de Controle) -->
+                        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50 space-y-3">
+                            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center justify-between">
+                                <span>Ficha Técnica do Ativo</span>
+                                <span class="text-[10px] text-slate-500 font-mono">Série: <b id="detail-serie" class="text-slate-800">1010605845</b></span>
+                            </h3>
+
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">JDE Atual</span>
+                                    <span class="font-bold text-slate-800" id="detail-jde">---</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Matrícula</span>
+                                    <span class="font-bold text-slate-800" id="detail-matricula">---</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Potência</span>
+                                    <span class="font-bold text-slate-800" id="detail-potencia">5.5 kW / 7.5 HP (10)</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Tensão</span>
+                                    <span class="font-bold text-slate-800" id="detail-tensao">220/380/440 V</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Corrente ($I_n$)</span>
+                                    <span class="font-bold text-slate-800" id="detail-corrente">25.0 / 14.5 / 12.5 A</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Carcaça</span>
+                                    <span class="font-bold text-slate-800" id="detail-carcaca">132S</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">RPM</span>
+                                    <span class="font-bold text-slate-800" id="detail-rpm">3510 RPM</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Polos</span>
+                                    <span class="font-bold text-slate-800" id="detail-polos">2P</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">FS</span>
+                                    <span class="font-bold text-slate-800" id="detail-fs">1.15</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Rendimento ($\eta$)</span>
+                                    <span class="font-bold text-slate-800" id="detail-rendimento">89.6%</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Fator Potência ($\cos\phi$)</span>
+                                    <span class="font-bold text-slate-800" id="detail-fp">0.88</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Proteção</span>
+                                    <span class="font-bold text-slate-800" id="detail-protecao">IP55 / Classe F</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200 col-span-2 sm:col-span-1">
+                                    <span class="text-[10px] text-slate-400 block">Rolamentos (Diant/Tras)</span>
+                                    <span class="font-bold text-slate-800" id="detail-rolamentos">6309-Z-C3 / 6207-ZZ</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 block">Massa</span>
+                                    <span class="font-bold text-slate-800" id="detail-massa">66 kg</span>
+                                </div>
+                                <div class="p-2 bg-white rounded border border-slate-200 col-span-2 sm:col-span-1">
+                                    <span class="text-[10px] text-slate-400 block">Lubrificante</span>
+                                    <span class="font-bold text-slate-800" id="detail-lubrificante">Mobil Polyrex EM</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lado Direito: Formulário de Movimentação -->
+                    <div class="w-full md:w-1/2 border-t md:border-t-0 md:border-l border-slate-200 pt-6 md:pt-0 md:pl-8 space-y-4">
+                        <div class="border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-slate-900 text-lg">Formulário de Movimentação</h3>
+                            <p class="text-xs text-slate-500">Preenchimento obrigatório para registro no banco de dados</p>
+                        </div>
+
+                        <form id="move-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Ação a Realizar *</label>
+                                <select id="form-action" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">Selecione a ação...</option>
+                                    <option value="Retirada">Retirada (Para Área Fabril)</option>
+                                    <option value="Devolução">Devolução (Para Estação X2)</option>
+                                    <option value="Oficina Externa">Envio para Manutenção / Oficina Externa</option>
+                                    <option value="Sucata">Sucata / Descarte</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Número da Requisição *</label>
+                                <input type="text" id="form-requisicao" required placeholder="Ex: REQ-2026-0982" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Localização de Destino *</label>
+                                <input type="text" id="form-localizacao" required placeholder="Ex: Bomba P-101B (Área de Britagem) ou Estação X2" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Observações Técnicas</label>
+                                <textarea id="form-observacao" rows="3" placeholder="Anotações de campo, reparos ou status de testes..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2">
+                                <i data-lucide="check-circle" class="w-5 h-5"></i>
+                                <span>Confirmar e Registrar Movimentação</span>
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript do App -->
+    <script>
+        // Banco de dados mapeado rigorosamente com os 23 campos da planilha
+        let motorsData = [
+            {
+                jde_atual: "",
+                tag: "MOT-X2-0001",
+                matricula: "",
+                aplicacao: "Moagem Secundaria",
+                modelo: "WEG W22 Plus 7.5 HP (10 HP)",
+                serie: "1010605845",
+                potencia: "5.5 kW / 7.5 HP (10 HP)",
+                tensao: "220/380/440 V",
+                corrente: "25.0 / 14.5 / 12.5 A",
+                carcaca: "132S",
+                rpm: "3510 RPM",
+                polos: "2P",
+                fs: "1.15",
+                rendimento: "89.6%",
+                fator_potencia: "0.88",
+                protecao: "IP55 / Classe F (80K)",
+                rolamentos: "6309-Z-C3 / 6207-ZZ",
+                massa: "66 kg",
+                lubrificante: "Mobil Polyrex EM (13g / 19000h)",
+                status: "Disponível",
+                localizacao: "Estação X2 - Rua A, Palete 01",
+                requisicao: "REQ-2026-1020",
+                observacao: "Motor testado e lubrificação em dia.",
+                img: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=600"
+            },
+            {
+                jde_atual: "",
+                tag: "MOT-X2-0002",
+                matricula: "",
+                aplicacao: "Bomba Principia P-101A",
+                modelo: "Siemens 1LE1 75 CV 2P",
+                serie: "2010998311",
+                potencia: "55 kW / 75 HP",
+                tensao: "440 V",
+                corrente: "88.0 A",
+                carcaca: "225M",
+                rpm: "3550 RPM",
+                polos: "2P",
+                fs: "1.15",
+                rendimento: "93.6%",
+                fator_potencia: "0.89",
+                protecao: "IP55 / Classe F",
+                rolamentos: "6313-C3 / 6312-C3",
+                massa: "380 kg",
+                lubrificante: "Mobil Polyrex EM",
+                status: "Em Operação",
+                localizacao: "Bomba P-101A (Área de Britagem)",
+                requisicao: "REQ-2026-3044",
+                observacao: "Instalado em substituição ao motor queimado.",
+                img: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&q=80&w=600"
+            },
+            {
+                jde_atual: "",
+                tag: "MOT-X2-0003",
+                matricula: "",
+                aplicacao: "Exaustor Geral",
+                modelo: "Voges Indução 30 CV 6P",
+                serie: "3012884102",
+                potencia: "22 kW / 30 HP",
+                tensao: "220/380 V",
+                corrente: "74.0 / 42.8 A",
+                carcaca: "180M",
+                rpm: "1170 RPM",
+                polos: "6P",
+                fs: "1.00",
+                rendimento: "91.0%",
+                fator_potencia: "0.84",
+                protecao: "IP54 / Classe B",
+                rolamentos: "6310-Z / 6209-Z",
+                massa: "145 kg",
+                lubrificante: "Graxa Mineral Multi-purpose",
+                status: "Oficina Externa",
+                localizacao: "Oficina EletroMotores Ltda",
+                requisicao: "REQ-2026-4011",
+                observacao: "Enviado para rebobinamento do estator.",
+                img: "https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&q=80&w=600"
+            },
+            {
+                jde_atual: "",
+                tag: "MOT-X2-0004",
+                matricula: "",
+                aplicacao: "Reserva Critica Moinho",
+                modelo: "WEG W22 High Efficiency 100 CV",
+                serie: "1098234110",
+                potencia: "75 kW / 100 HP",
+                tensao: "380/660 V",
+                corrente: "138 / 79.7 A",
+                carcaca: "250S/M",
+                rpm: "1780 RPM",
+                polos: "4P",
+                fs: "1.15",
+                rendimento: "94.5%",
+                fator_potencia: "0.87",
+                protecao: "IP55 / Classe F",
+                rolamentos: "6314-C3 / 6314-C3",
+                massa: "510 kg",
+                lubrificante: "Mobil Polyrex EM",
+                status: "Disponível",
+                localizacao: "Estação X2 - Rua B, Palete 04",
+                requisicao: "REQ-2026-0092",
+                observacao: "Reserva crítica da moagem.",
+                img: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=600"
+            }
+        ];
+
+        let selectedTag = "MOT-X2-0001";
+
+        // Inicialização
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
+            renderTable();
+            updateStats();
+            renderQuickScanButtons();
+            selectMotorForDetail("MOT-X2-0001");
+        });
+
+        // Alternar Abas
+        function switchTab(tabName) {
+            const tabs = ['dashboard', 'scanner', 'move'];
+            tabs.forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('active-tab');
+            });
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('active-tab');
+        }
+
+        // Renderizar Tabela
+        function renderTable(data = motorsData) {
+            const tbody = document.getElementById('motors-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(m => {
+                let statusColor = 'bg-emerald-100 text-emerald-800';
+                if (m.status === 'Em Operação') statusColor = 'bg-blue-100 text-blue-800';
+                if (m.status === 'Oficina Externa') statusColor = 'bg-amber-100 text-amber-800';
+                if (m.status === 'Sucata') statusColor = 'bg-red-100 text-red-800';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 border-b border-slate-100 transition';
+                tr.innerHTML = `
+                    <td class="p-4 font-bold text-blue-600">${m.tag}</td>
+                    <td class="p-4">
+                        <div class="font-medium text-slate-900">${m.modelo || '---'}</div>
+                        <div class="text-xs text-slate-400">${m.aplicacao || '---'}</div>
+                    </td>
+                    <td class="p-4 text-xs">
+                        <div class="font-semibold text-slate-700">${m.potencia || '---'}</div>
+                        <div class="text-slate-400">Carcaça: ${m.carcaca || '---'}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}">
+                            ${m.status || '---'}
+                        </span>
+                    </td>
+                    <td class="p-4 text-xs font-medium text-slate-600">${m.localizacao || '---'}</td>
+                    <td class="p-4 text-xs font-mono text-slate-500">${m.requisicao || '---'}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="selectAndGoToMove('${m.tag}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded transition">
+                            Gerenciar
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Atualizar Estatísticas
+        function updateStats() {
+            document.getElementById('stat-total').innerText = motorsData.length;
+            document.getElementById('stat-x2').innerText = motorsData.filter(m => m.status === 'Disponível').length;
+            document.getElementById('stat-area').innerText = motorsData.filter(m => m.status === 'Em Operação').length;
+            document.getElementById('stat-oficina').innerText = motorsData.filter(m => m.status === 'Oficina Externa').length;
+        }
+
+        // Selecionar e Preencher Detalhes do Motor
+        function selectMotorForDetail(tag) {
+            selectedTag = tag;
+            const motor = motorsData.find(m => m.tag === tag);
+            if (!motor) return;
+
+            document.getElementById('detail-tag').innerText = motor.tag || '---';
+            document.getElementById('detail-modelo').innerText = motor.modelo || '---';
+            document.getElementById('detail-aplicacao').innerText = "Aplicação: " + (motor.aplicacao || '---');
+            document.getElementById('detail-serie').innerText = motor.serie || '---';
+            
+            document.getElementById('detail-jde').innerText = motor.jde_atual || '---';
+            document.getElementById('detail-matricula').innerText = motor.matricula || '---';
+            document.getElementById('detail-potencia').innerText = motor.potencia || '---';
+            document.getElementById('detail-tensao').innerText = motor.tensao || '---';
+            document.getElementById('detail-corrente').innerText = motor.corrente || '---';
+            document.getElementById('detail-carcaca').innerText = motor.carcaca || '---';
+            document.getElementById('detail-rpm').innerText = motor.rpm || '---';
+            document.getElementById('detail-polos').innerText = motor.polos || '---';
+            document.getElementById('detail-fs').innerText = motor.fs || '---';
+            document.getElementById('detail-rendimento').innerText = motor.rendimento || '---';
+            document.getElementById('detail-fp').innerText = motor.fator_potencia || '---';
+            document.getElementById('detail-protecao').innerText = motor.protecao || '---';
+            document.getElementById('detail-rolamentos').innerText = motor.rolamentos || '---';
+            document.getElementById('detail-massa').innerText = motor.massa || '---';
+            document.getElementById('detail-lubrificante').innerText = motor.lubrificante || '---';
+            document.getElementById('detail-img').src = motor.img;
+
+            document.getElementById('form-localizacao').value = motor.localizacao || '';
+            document.getElementById('form-requisicao').value = motor.requisicao || '';
+            document.getElementById('form-observacao').value = motor.observacao || '';
+
+            const badge = document.getElementById('detail-status-badge');
+            badge.innerText = motor.status || '---';
+            badge.className = "px-2.5 py-1 rounded-full text-xs font-semibold ";
+            if (motor.status === 'Disponível') badge.className += "bg-emerald-100 text-emerald-800";
+            else if (motor.status === 'Em Operação') badge.className += "bg-blue-100 text-blue-800";
+            else badge.className += "bg-amber-100 text-amber-800";
+        }
+
+        function selectAndGoToMove(tag) {
+            selectMotorForDetail(tag);
+            switchTab('move');
+        }
+
+        // Submissão do Formulário
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const action = document.getElementById('form-action').value;
+            const requisicao = document.getElementById('form-requisicao').value;
+            const localizacao = document.getElementById('form-localizacao').value;
+            const observacao = document.getElementById('form-observacao').value;
+
+            const motor = motorsData.find(m => m.tag === selectedTag);
+            if (motor) {
+                if (action === 'Retirada') motor.status = 'Em Operação';
+                else if (action === 'Devolução') motor.status = 'Disponível';
+                else if (action === 'Oficina Externa') motor.status = 'Oficina Externa';
+                else if (action === 'Sucata') motor.status = 'Sucata';
+
+                motor.requisicao = requisicao;
+                motor.localizacao = localizacao;
+                motor.observacao = observacao;
+
+                alert(`Movimentação registrada com sucesso!\n\nTAG: ${motor.tag}\nAção: ${action}\nRequisição: ${requisicao}`);
+                
+                renderTable();
+                updateStats();
+                selectMotorForDetail(selectedTag);
+                switchTab('dashboard');
+            }
+        }
+
+        // Botões de Bipagem Rápida
+        function renderQuickScanButtons() {
+            const container = document.getElementById('quick-scan-buttons');
+            container.innerHTML = '';
+            motorsData.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = "p-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-xs font-bold rounded border border-slate-200 transition text-center";
+                btn.innerText = m.tag;
+                btn.onclick = () => {
+                    selectAndGoToMove(m.tag);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // Filtro de Busca
+        function filterMotors() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const filtered = motorsData.filter(m => 
+                (m.tag && m.tag.toLowerCase().includes(q)) || 
+                (m.modelo && m.modelo.toLowerCase().includes(q)) || 
+                (m.serie && m.serie.toLowerCase().includes(q)) ||
+                (m.localizacao && m.localizacao.toLowerCase().includes(q)) ||
+                (m.requisicao && m.requisicao.toLowerCase().includes(q))
+            );
+            renderTable(filtered);
+        }
+
+        // Exportar para CSV com exatamente o mesmo cabeçalho da planilha
+        function exportToCSV() {
+            let csv = "JDE Atual,TAG,Matrícula,Aplicação,Modelo,Serie,Potencia,Tensao,Corrente,Carcaca,RPM,Polos,FS,Rendimento,Fator_Potencia,Protecao,Rolamentos(Diant/Trans),Massa,Lubrificante,Status,Localização,Requisicao,Observação\n";
+            motorsData.forEach(m => {
+                csv += `"${m.jde_atual}","${m.tag}","${m.matricula}","${m.aplicacao}","${m.modelo}","${m.serie}","${m.potencia}","${m.tensao}","${m.corrente}","${m.carcaca}","${m.rpm}","${m.polos}","${m.fs}","${m.rendimento}","${m.fator_potencia}","${m.protecao}","${m.rolamentos}","${m.massa}","${m.lubrificante}","${m.status}","${m.localizacao}","${m.requisicao}","${m.observacao}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", "planilha_controle_estacao_x2.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
